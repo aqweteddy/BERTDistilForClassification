@@ -1,0 +1,18 @@
+batch_size: 16
+bert_model:
+  ckpt: tb_logs/roberta/version_1/epoch=3.ckpt
+  num_classes: 16
+data:
+  maxlen: 350
+loss_a: 0.05
+lr: 0.01
+lstm_model:
+  dropout: 0.3
+  embed_size: 250
+  hid_size: 256
+  num_classes: 16
+  num_layers: 3
+  pretrained_weight: true
+  with_attn: false
+name: distil_roberta_lstm
+weight_decay: 0

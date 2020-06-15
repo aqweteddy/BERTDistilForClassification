@@ -1,12 +1,12 @@
 import pytorch_lightning as pl
-from dataset import PttDcardDataset
+from dataset import PttDcardDataset, ConcatDataset
 from torch.utils import data
 import random
 import torch
 import torch.nn as nn
 from model.lstm import LstmClassifier
 from gensim.models import Word2Vec
-from transformers import AlbertForSequenceClassification
+from transformers import BertForSequenceClassification
 from train_bert import BertTrainer
 
 
@@ -37,7 +37,8 @@ class DistilTrainer(pl.LightningModule):
         super(DistilTrainer, self).__init__(*args, **kwargs)
         self.hparams = hparams
         self.bert = BertTrainer.load_from_checkpoint(hparams['bert_model']['ckpt'])
-        self.lstm = LstmClassifier(hparams['lstm_model'], params=self.bert.model.get_input_embeddings().weight)
+        self.w2v = Word2Vec.load('./word2vec/word2vec_ptt_dcard_size_250_hs_1.bin')
+        self.lstm = LstmClassifier(hparams['lstm_model'], params=torch.tensor(self.w2v.wv.vectors))
         # self.bert = AlbertForSequenceClassification.from_pretrained(
         #     'voidful/albert_chinese_base', num_labels=hparams['bert_model']['num_classes'])
         self.criterion = WeightedLoss(a=hparams['loss_a'])
@@ -54,14 +55,20 @@ class DistilTrainer(pl.LightningModule):
 
     def prepare_data(self):
         # self.w2v = Word2Vec.load('./word2vec/word2vec_ptt_dcard_size_250_hs_1.bin')
-        ds = PttDcardDataset('../fetch_data/merge.csv',
-                            #  w2v_model=self.w2v,
-                             maxlen=self.hparams['data']['maxlen']
+        ds_bert = PttDcardDataset('./data/seg.json',
+                             maxlen=self.hparams['data']['maxlen'],
+                             mode='bert'
                              )
-        
-        n_train = 60000
+        ds_lstm = PttDcardDataset('./data/seg.json',
+                             w2v_model=self.w2v,
+                             maxlen=self.hparams['data']['maxlen'],
+                             mode='lstm'
+                             )
+        ds_concat = ConcatDataset(ds_bert, ds_lstm)
+        n_train = int(len(ds_concat) * 0.4)
         n_dev = 10000
-        self.train_set, self.dev_set, _ = data.random_split(ds, [n_train, n_dev, len(ds) - n_train - n_dev])
+        self.train_set, self.dev_set, _ = data.random_split(
+            ds_concat, [n_train, n_dev, len(ds_concat) - n_train - n_dev])
 
     def train_dataloader(self):
         return data.DataLoader(self.train_set,
@@ -73,15 +80,18 @@ class DistilTrainer(pl.LightningModule):
     def val_dataloader(self):
         return data.DataLoader(self.dev_set,
                                batch_size=self.hparams['batch_size'],
-                               #    shuffle=True,
                                num_workers=5,
                                drop_last=True)
 
     def training_step(self, batch, batch_idx):
-        inp_ids, type_ids, attn_masks, labels = batch
-        bert_logits = self.bert(
-            inp_ids, attn_masks, type_ids)
-        lstm_logits = self.lstm(inp_ids, attn_masks)
+        batch_bert, batch_lstm = batch
+        inp_ids, type_ids, attn_masks, labels = batch_bert
+        with torch.no_grad():
+            bert_logits = self.bert(
+                inp_ids, attn_masks, type_ids)
+        lstm_inp_ids, lstm_labels = batch_lstm
+        assert (labels == lstm_labels).all()
+        lstm_logits = self.lstm(lstm_inp_ids, lstm_labels)
         loss = self.criterion(lstm_logits, bert_logits, labels)
         return {'loss': loss}
 
@@ -93,10 +103,13 @@ class DistilTrainer(pl.LightningModule):
         return results
 
     def validation_step(self, batch, batch_idx):
-        inp_ids, type_ids, attn_masks, labels = batch
+        batch_bert, batch_lstm = batch
+        inp_ids, type_ids, attn_masks, labels = batch_bert
+
         with torch.no_grad():
             bert_logits = self.bert(
                 inp_ids, attn_masks, type_ids)
+            inp_ids, labels = batch_lstm
             lstm_logits = self.lstm(inp_ids, attn_masks)
         loss = nn.functional.cross_entropy(lstm_logits, labels)
         correct = (lstm_logits.max(1)[1] == labels).detach().cpu().type(torch.float)

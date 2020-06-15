@@ -1,12 +1,15 @@
-import pytorch_lightning as pl
-from dataset import PttDcardDataset
-from torch.utils import data
 import random
+
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 # from model.lstm import LstmClassifier
 from gensim.models import Word2Vec
-from transformers import AlbertForSequenceClassification
+from torch.utils import data
+from transformers import (AlbertForSequenceClassification,
+                          BertForSequenceClassification)
+
+from dataset import PttDcardDataset
 
 
 class BertTrainer(pl.LightningModule):
@@ -14,9 +17,9 @@ class BertTrainer(pl.LightningModule):
         super(BertTrainer, self).__init__(*args, **kwargs)
         self.hparams = hparams
         # self.model = LstmClassifier(hparams['lstm_model'])
-        self.model = AlbertForSequenceClassification.from_pretrained(
-            'voidful/albert_chinese_base', num_labels=hparams['bert_model']['num_classes'])
-
+        self.model = BertForSequenceClassification.from_pretrained(
+            'hfl/chinese-roberta-wwm-ext', num_labels=hparams['bert_model']['num_classes'])
+        
     def forward(self, inp_ids, attn_masks, type_ids):
         with torch.no_grad():
             bert_logits = self.model(
@@ -29,12 +32,14 @@ class BertTrainer(pl.LightningModule):
         return optimizer
 
     def prepare_data(self):
-        ds = PttDcardDataset('../fetch_data/merge.csv',
+        ds = PttDcardDataset('./data/seg.json',
                              w2v_model=None,
-                             maxlen=self.hparams['data']['maxlen']
+                             maxlen=self.hparams['data']['maxlen'],
+                             mode='bert'
                              )
-        n_train = int(len(ds) * 0.4)
+        n_train = int(0.65 * len(ds))
         n_dev = 10000
+        print(f'num_train: {n_train}')
         self.train_set, self.dev_set, _ = data.random_split(
             ds, [n_train, n_dev, len(ds) - n_train - n_dev])
 
@@ -42,15 +47,15 @@ class BertTrainer(pl.LightningModule):
         return data.DataLoader(self.train_set,
                                batch_size=self.hparams['batch_size'],
                                shuffle=True,
-                               num_workers=5,
+                               num_workers=8,
                                drop_last=True)
 
     def val_dataloader(self):
         return data.DataLoader(self.dev_set,
                                batch_size=self.hparams['batch_size'],
-                               #    shuffle=True,
                                num_workers=5,
                                drop_last=True)
+
 
     def training_step(self, batch, batch_idx):
         inp_ids, type_ids, attn_masks, labels = batch

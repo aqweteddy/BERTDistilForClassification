@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 import re
 import gensim
-from gaisTokenizer import Tokenizer
+# from gaisTokenizer import Tokenizer
 from sklearn.utils import shuffle
 
 
@@ -33,7 +33,7 @@ class PttDcardDataset(Dataset):
     @staticmethod
     def load_data(file, mode='bert'):
         df = pd.read_json(file)
-        df = shuffle(df)
+        # df = shuffle(df)
         label = df['category'].tolist()
         if mode == 'bert':
             text = df['text'].tolist()
@@ -95,11 +95,33 @@ class PttDcardDataset(Dataset):
             return self.get_lstm(idx)
 
 
+class ConcatDataset(torch.utils.data.Dataset):
+    def __init__(self, *datasets):
+        self.datasets = datasets
+
+    def __getitem__(self, i):
+        return tuple(d[i] for d in self.datasets)
+
+    def __len__(self):
+        return min(len(d) for d in self.datasets)
+
+
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
-    w2v = gensim.models.Word2Vec.load('word2vec/w2v_250d_wordpiece.bin')
-    ds = PttDcardDataset('../fetch_data/merge_train.csv', w2v, maxlen=128)
-    print(ds[3])
+    w2v = gensim.models.Word2Vec.load('word2vec/word2vec_ptt_dcard_size_250_hs_1.bin')
+    # ds = PttDcardDataset('../fetch_data/merge_train.csv', w2v, maxlen=128)
+    # print(ds[3])
+    ds_bert = PttDcardDataset('./data/seg.json',
+                            maxlen=256,
+                            mode='bert'
+                            )
+    ds_lstm = PttDcardDataset('./data/seg.json',
+                            w2v_model=w2v,
+                            maxlen=256,
+                            mode='lstm'
+                            )
+    ds_concat = ConcatDataset(ds_bert, ds_lstm)
     # from torch.utils.data import DataLoader
-    for batch in DataLoader(ds, batch_size=32, num_workers=10):
-        print(batch)
+    for batch in DataLoader(ds_concat, batch_size=32, num_workers=10):
+        bert, lstm = batch
+        assert (bert[3] == lstm[1]).all()

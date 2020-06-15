@@ -2,3 +2,6 @@
 *.npy
 *.bin
 __py*/
+.*/
+*.out
+data/*
