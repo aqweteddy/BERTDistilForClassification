@@ -1,11 +1,12 @@
-batch_size: 16
+batch_size: 32
 bert_model:
   ckpt: tb_logs/roberta/version_1/epoch=3.ckpt
   num_classes: 16
 data:
   maxlen: 350
-loss_a: 0.05
-lr: 0.01
+description: MSE(logits)
+loss_a: 0.0
+lr: 0.005
 lstm_model:
   dropout: 0.3
   embed_size: 250

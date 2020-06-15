@@ -29,6 +29,8 @@ class WeightedLoss(nn.Module):
             tensor: loss
         """
         # print(lstm_logits.shape, bert_logits.shape, labels.shape)
+        # lstm_logits = torch.softmax(lstm_logits, dim=1)
+        # bert_logits = torch.softmax(bert_logits, dim=1)
         return self.a * self.ce(lstm_logits, labels) + (1. - self.a) * self.mse(lstm_logits, bert_logits)
 
 

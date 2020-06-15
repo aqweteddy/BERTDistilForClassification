@@ -8,7 +8,8 @@ class LstmClassifier(nn.Module):
         self.with_attn = hparams['with_attn']
         self.hparams = hparams
         if params is not None:
-            self.embedding = nn.Embedding.from_pretrained(params, freeze=True, padding_idx=0)
+            print('set word2vec embedding')
+            self.embedding = nn.Embedding.from_pretrained(params, freeze=False, padding_idx=0)
         else:
             self.embedding = nn.Embedding(hparams['dct_size'], hparams['embed_size'], 0)
         self.lstm = nn.LSTM(hparams['embed_size'],

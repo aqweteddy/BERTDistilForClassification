@@ -35,10 +35,11 @@ bert_hparams = {
 
 distil_hparams = {
     'name': 'distil_roberta_lstm',
-    'batch_size': 16,
+    'description': 'MSE(logits)',
+    'batch_size': 32,
     'weight_decay': 0,
-    'loss_a': 0.05,
-    'lr': 0.01,
+    'loss_a': 0.,
+    'lr': 0.005,
     'data': {
         'maxlen': 350
     },
