@@ -5,6 +5,7 @@
 ## Dataset
 
 * dcard + ptt 共 20 萬篇文章
+* 這個 [repo](https://github.com/aqweteddy/ArticleClassification) 為各種 pretrained model 的分類任務結果
 
 ## Environement
 
@@ -60,3 +61,7 @@
     'ckpt': 'logs/roberta/version_6/epoch=1.ckpt'
 }
 ```
+
+## Reference
+
+* (Distilling Task-Specific Knowledge from BERT into Simple Neural Networks)[https://arxiv.org/pdf/1903.12136.pdf]
