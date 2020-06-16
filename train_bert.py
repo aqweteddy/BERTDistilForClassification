@@ -37,7 +37,7 @@ class BertTrainer(pl.LightningModule):
                              maxlen=self.hparams['data']['maxlen'],
                              mode='bert'
                              )
-        n_train = int(0.65 * len(ds))
+        n_train = int(0.5 * len(ds))
         n_dev = 10000
         print(f'num_train: {n_train}')
         self.train_set, self.dev_set, _ = data.random_split(

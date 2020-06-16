@@ -20,11 +20,11 @@ lstm_hparams = {
 
 bert_hparams = {
     'name': 'roberta',
-    'batch_size': 16,
+    'batch_size': 12,
     'weight_decay': 0,
     'lr': 3e-5,
     'data': {
-        'maxlen': 500
+        'maxlen': 350
     },
     'bert_model': {
         # 'pretrained_weight': False,
@@ -36,28 +36,28 @@ bert_hparams = {
 distil_hparams = {
     'name': 'distil_roberta_lstm',
     'description': 'MSE(logits)',
-    'batch_size': 32,
+    'batch_size': 64,
     'weight_decay': 0,
     'loss_a': 0.,
-    'lr': 0.005,
+    # 'lr': 0.003,
+    'lr': 0.01,
     'data': {
         'maxlen': 350
     },
     'lstm_model': {
-        'pretrained_weight': True,
+        'freeze': False,
         # 'vocab_size': 21128,
         'embed_size': 250,
         'hid_size': 256,
-        'num_layers': 3,
+        'num_layers': 2,
         'dropout': 0.3,
         'with_attn': False,
         'num_classes': 16,
-        # 'bert_embedding': True
     },
     'bert_model': {
         # 'pretrained_weight': False,
         # 'vocab_size': 21128,
         'num_classes': 16,
-        'ckpt': 'tb_logs/roberta/version_1/epoch=3.ckpt'
+        'ckpt': 'logs/roberta/version_6/epoch=1.ckpt'
     }
 }

@@ -1,8 +1,8 @@
-batch_size: 16
+batch_size: 12
 bert_model:
   num_classes: 16
 data:
-  maxlen: 500
+  maxlen: 350
 lr: 3.0e-05
 name: roberta
 weight_decay: 0

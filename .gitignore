@@ -5,3 +5,4 @@ __py*/
 .*/
 *.out
 data/*
+events.out*

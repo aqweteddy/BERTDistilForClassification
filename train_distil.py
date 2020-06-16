@@ -49,10 +49,13 @@ class DistilTrainer(pl.LightningModule):
         pass
 
     def configure_optimizers(self):
-        # optimizer = torch.optim.Adagrad(self.lstm.parameters())
-        optimizer = torch.optim.Adam(self.lstm.parameters(
-        ), lr=self.hparams['lr'], weight_decay=self.hparams['weight_decay'])
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.9)
+        optimizer = torch.optim.Adam(self.lstm.parameters())
+        # optimizer = torch.optim.Adam(self.lstm.parameters(
+        # ), lr=self.hparams['lr'], weight_decay=self.hparams['weight_decay'])
+        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.9)
+        scheduler = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', 0.5, 3),
+                     'monitor': 'val_acc'
+                     }
         return {'optimizer':optimizer, 'scheduler':scheduler}
 
     def prepare_data(self):
@@ -67,7 +70,7 @@ class DistilTrainer(pl.LightningModule):
                              mode='lstm'
                              )
         ds_concat = ConcatDataset(ds_bert, ds_lstm)
-        n_train = int(len(ds_concat) * 0.4)
+        n_train = 100000
         n_dev = 10000
         self.train_set, self.dev_set, _ = data.random_split(
             ds_concat, [n_train, n_dev, len(ds_concat) - n_train - n_dev])
@@ -76,7 +79,7 @@ class DistilTrainer(pl.LightningModule):
         return data.DataLoader(self.train_set,
                                batch_size=self.hparams['batch_size'],
                                shuffle=True,
-                               num_workers=5,
+                               num_workers=10,
                                drop_last=True)
 
     def val_dataloader(self):
@@ -93,26 +96,27 @@ class DistilTrainer(pl.LightningModule):
                 inp_ids, attn_masks, type_ids)
         lstm_inp_ids, lstm_labels = batch_lstm
         assert (labels == lstm_labels).all()
-        lstm_logits = self.lstm(lstm_inp_ids, lstm_labels)
+        lstm_logits = self.lstm(lstm_inp_ids)
         loss = self.criterion(lstm_logits, bert_logits, labels)
+
         return {'loss': loss}
 
     def training_epoch_end(self, outputs):
         loss_mean = torch.stack([x['loss'] for x in outputs]).mean()
         logs = {'train_mean_loss': loss_mean.item()}
-        self.logger.log_metrics(logs, self.current_epoch)
-        results = {'progress_bar': logs, 'train_loss': loss_mean}
+        # self.logger.log_metrics(logs, self.current_epoch)
+        results = {'progress_bar': logs, 'train_loss': loss_mean, 'logs': logs}
         return results
 
     def validation_step(self, batch, batch_idx):
         batch_bert, batch_lstm = batch
         inp_ids, type_ids, attn_masks, labels = batch_bert
 
-        with torch.no_grad():
-            bert_logits = self.bert(
-                inp_ids, attn_masks, type_ids)
-            inp_ids, labels = batch_lstm
-            lstm_logits = self.lstm(inp_ids, attn_masks)
+        # with torch.no_grad():
+        #     # bert_logits = self.bert(
+        #     #     inp_ids, attn_masks, type_ids)
+        inp_ids, labels = batch_lstm
+        lstm_logits = self.lstm(inp_ids)
         loss = nn.functional.cross_entropy(lstm_logits, labels)
         correct = (lstm_logits.max(1)[1] == labels).detach().cpu().type(torch.float)
 
@@ -124,4 +128,4 @@ class DistilTrainer(pl.LightningModule):
         logs = {'val_acc': acc.item(), 'val_loss': val_loss_mean}
         self.logger.log_metrics(logs, self.current_epoch)
         # self.logger.log_hyperparams(self.hparams, logs)
-        return {'val_loss': val_loss_mean.cpu(), 'progress_bar': logs}
+        return {'val_loss': val_loss_mean.cpu(), 'progress_bar': logs, 'val_acc': acc.cpu()}

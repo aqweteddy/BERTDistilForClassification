@@ -6,6 +6,8 @@ from config import lstm_hparams, bert_hparams,distil_hparams
 from argparse import ArgumentParser
 import os
 
+
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 parser = ArgumentParser()
 parser.add_argument('--model', type=str, help='bert lstm or joint')
 parser.add_argument('--find_lr', type=int, default=False)
@@ -24,27 +26,27 @@ elif args.model == 'distil':
 # model = SimpleTrainer(hparams)
 
 early_stop_callback = pl.callbacks.EarlyStopping(
-    monitor='val_acc',
+    monitor='val_loss',
     min_delta=0.001,
-    patience=3,
+    patience=5,
     verbose=True,
-    mode='max'
+    mode='min'
 )
 
-save_ckpt_callback = pl.callbacks.ModelCheckpoint(os.path.join('tb_logs', hparams['name']), save_top_k=2, mode='max', monitor='val_acc')
+save_ckpt_callback = pl.callbacks.ModelCheckpoint(os.path.join('logs'), save_top_k=2, mode='min', monitor='val_loss')
 
 # model = SimpleTrainer(hparams)
 
-trainer = pl.Trainer(logger=pl.loggers.TensorBoardLogger('tb_logs', name=hparams['name']),
+trainer = pl.Trainer(logger=pl.loggers.TensorBoardLogger('logs', name=hparams['name']),
                      check_val_every_n_epoch=1,
-                    #  resume_from_checkpoint='tb_logs/roberta/version_0/checkpoints/epoch=1.ckpt',
+                    #  resume_from_checkpoint='tb_logs/distil_roberta_lstm/version_0/epoch=3.ckpt',
                      checkpoint_callback=save_ckpt_callback,
                      gpus=1,
-                     max_epochs=5,
+                     max_epochs=20
                      )
 # finder = trainer.lr_find(model)
 # lr = finder.suggestion()
-# print(lr)
+# print(lr)tai
 if args.find_lr == 1:
     finder = trainer.lr_find(model)
     lr = finder.suggestion()
